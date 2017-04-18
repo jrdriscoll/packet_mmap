@@ -1,6 +1,6 @@
-These are files used to help understand the implementation of `AF_PACKET` with shared `TX` rings.
+These are programs/scripts used to help understand the implementation of `AF_PACKET` with shared `TX` rings.
 
-There is a test program `packet_mmap.c` that can be used to write data using `AF_PACKET`.   I believe this to be the original test program for the initial implementation of rx mmap, which (for now) I have only modified to make it build without warning.  You can find the original [here](https://web.archive.org/web/20120317094808/http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap).
+There is a test program `packet_mmap.c` that can be used to write data using `AF_PACKET`.   I believe this to be the original test program for the initial implementation of tx mmap, which (for now) I have only modified to make it build without warning.  You can find the original [here](https://web.archive.org/web/20120317094808/http://wiki.ipxwarzone.com/index.php5?title=Linux_packet_mmap).
 
 The file `status.stp` is a [`SystemTap`](https://sourceware.org/systemtap/) script that provides some information about the functioning of `net/packet/af_packet.c`.  Because it refers to line numbers, it is specific to kernel version 2.13.0-166 (well, probably not that specific as `af_packet.c` isn't changed every day).
 
