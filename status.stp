@@ -1,0 +1,51 @@
+# This is specific to net/packet/af_packet.c 3.13.0-116
+
+function print_ts() {
+  ts = gettimeofday_us();
+  printf("[%10d.%06d] ", ts/1000000, ts%1000000);
+}
+
+probe kernel.statement("__packet_set_status@net/packet/af_packet.c:334") {
+  print_ts();
+  printf("SET(V1): %d (0x%.16x)\n", $status, $frame);
+}
+
+probe kernel.statement("__packet_set_status@net/packet/af_packet.c:338") {
+  print_ts();
+  printf("SET(V2): %d\n", $status);
+}
+
+probe kernel.statement("__packet_get_status@net/packet/af_packet.c:358") { 
+  print_ts();
+  printf("GET(V1): %d (0x%.16x)\n", $h->h1->tp_status, $frame); 
+}
+
+probe kernel.statement("__packet_get_status@net/packet/af_packet.c:361") { 
+  print_ts();
+  printf("GET(V2): %d\n", $h->h2->tp_status); 
+}
+
+probe kernel.function("tpacket_snd") {
+  print_ts();
+  printf("tpacket_snd: args(%s)\n", $$parms);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {
+  print_ts();
+  printf("tpacket_snd: return(%d)\n", $err);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2140") {
+  print_ts();
+  printf("tpacket_snd:2140: current frame ph = 0x%.16x\n", $ph);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2141") {
+  print_ts();
+  printf("tpacket_snd:2141: (ph==NULL) --> schedule()\n");
+}
+
+probe kernel.statement("tpacket_destruct_skb@net/packet/af_packet.c:1956") {
+  print_ts();
+  printf("tpacket_destruct_skb:1956: ph = 0x%.16x\n", $ph);
+}
