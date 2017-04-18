@@ -5,6 +5,29 @@ function print_ts() {
   printf("[%10d.%06d] ", ts/1000000, ts%1000000);
 }
 
+#  325 static void __packet_set_status(struct packet_sock *po, void *frame, int status)
+#  326 {
+#  327 	union tpacket_uhdr h;
+#  328 
+#  329 	h.raw = frame;
+#  330 	switch (po->tp_version) {
+#  331 	case TPACKET_V1:
+#  332 		h.h1->tp_status = status;
+#  333 		flush_dcache_page(pgv_to_page(&h.h1->tp_status));
+#  334 		break;
+#  335 	case TPACKET_V2:
+#  336 		h.h2->tp_status = status;
+#  337 		flush_dcache_page(pgv_to_page(&h.h2->tp_status));
+#  338 		break;
+#  339 	case TPACKET_V3:
+#  340 	default:
+#  341 		WARN(1, "TPACKET version not supported.\n");
+#  342 		BUG();
+#  343 	}
+#  344 
+#  345 	smp_wmb();
+#  346 }
+
 probe kernel.statement("__packet_set_status@net/packet/af_packet.c:334") {
   print_ts();
   printf("SET(V1): %d (0x%.16x)\n", $status, $frame);
@@ -15,6 +38,28 @@ probe kernel.statement("__packet_set_status@net/packet/af_packet.c:338") {
   printf("SET(V2): %d\n", $status);
 }
 
+#  348 static int __packet_get_status(struct packet_sock *po, void *frame)
+#  349 {
+#  350 	union tpacket_uhdr h;
+#  351 
+#  352 	smp_rmb();
+#  353 
+#  354 	h.raw = frame;
+#  355 	switch (po->tp_version) {
+#  356 	case TPACKET_V1:
+#  357 		flush_dcache_page(pgv_to_page(&h.h1->tp_status));
+#  358 		return h.h1->tp_status;
+#  359 	case TPACKET_V2:
+#  360 		flush_dcache_page(pgv_to_page(&h.h2->tp_status));
+#  361 		return h.h2->tp_status;
+#  362 	case TPACKET_V3:
+#  363 	default:
+#  364 		WARN(1, "TPACKET version not supported.\n");
+#  365 		BUG();
+#  366 		return 0;
+#  367 	}
+#  368 }
+
 probe kernel.statement("__packet_get_status@net/packet/af_packet.c:358") { 
   print_ts();
   printf("GET(V1): %d (0x%.16x)\n", $h->h1->tp_status, $frame); 
@@ -24,6 +69,51 @@ probe kernel.statement("__packet_get_status@net/packet/af_packet.c:361") {
   print_ts();
   printf("GET(V2): %d\n", $h->h2->tp_status); 
 }
+
+# 2088 static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+# 2089 {
+# [...]
+# 2136 	do {
+# 2137 		ph = packet_current_frame(po, &po->tx_ring,
+# 2138 				TP_STATUS_SEND_REQUEST);
+# 2139 
+# 2140 		if (unlikely(ph == NULL)) {
+# 2141 			schedule();
+# 2142 			continue;
+# 2143 		}
+# 2144 
+# 2145 		status = TP_STATUS_SEND_REQUEST;
+# 2146 		hlen = LL_RESERVED_SPACE(dev);
+# 2147 		tlen = dev->needed_tailroom;
+# 2148 		skb = sock_alloc_send_skb(&po->sk,
+# 2149 				hlen + tlen + sizeof(struct sockaddr_ll),
+# 2150 				0, &err);
+# 2151 
+# 2152 		if (unlikely(skb == NULL))
+# 2153 			goto out_status;
+# 2154 
+# 2155 		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
+# 2156 					  addr, hlen);
+# [...]
+# 2176 		skb->destructor = tpacket_destruct_skb;
+# 2177 		__packet_set_status(po, ph, TP_STATUS_SENDING);
+# 2178 		atomic_inc(&po->tx_ring.pending);
+# 2179 
+# 2180 		status = TP_STATUS_SEND_REQUEST;
+# 2181 		err = dev_queue_xmit(skb);
+# 2182 		if (unlikely(err > 0)) {
+# [...]
+# 2195 		}
+# 2196 		packet_increment_head(&po->tx_ring);
+# 2197 		len_sum += tp_len;
+# 2198 	} while (likely((ph != NULL) ||
+# 2199 			((!(msg->msg_flags & MSG_DONTWAIT)) &&
+# 2200 			 (atomic_read(&po->tx_ring.pending))))
+# 2201 		);
+# 2202 
+# [...]
+# 2213 	return err;
+# 2214 }
 
 probe kernel.function("tpacket_snd") {
   print_ts();
@@ -44,6 +134,25 @@ probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2141") {
   print_ts();
   printf("tpacket_snd:2141: (ph==NULL) --> schedule()\n");
 }
+
+# 1946 static void tpacket_destruct_skb(struct sk_buff *skb)
+# 1947 {
+# 1948 	struct packet_sock *po = pkt_sk(skb->sk);
+# 1949 	void *ph;
+# 1950 
+# 1951 	if (likely(po->tx_ring.pg_vec)) {
+# 1952 		__u32 ts;
+# 1953 
+# 1954 		ph = skb_shinfo(skb)->destructor_arg;
+# 1955 		BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
+# 1956 		atomic_dec(&po->tx_ring.pending);
+# 1957 
+# 1958 		ts = __packet_set_timestamp(po, ph, skb);
+# 1959 		__packet_set_status(po, ph, TP_STATUS_AVAILABLE | ts);
+# 1960 	}
+# 1961 
+# 1962 	sock_wfree(skb);
+# 1963 }
 
 probe kernel.statement("tpacket_destruct_skb@net/packet/af_packet.c:1956") {
   print_ts();
