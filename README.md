@@ -14,4 +14,4 @@ In order to build `af_packet.c` without optimization, add the line `CFLAGS_af_pa
 
 If you have never built and installed a kernel before, you might want to do this for the first time using an unimportant machine or in a VM.  And you might want to change your grub configuration to show the menu of kernels at boot.
 
-Once you have successfully booted the kernel with debug information and `af_packet.c` compiled without optimization, you can run the `SystemTap` script with `sudo stap status.stp` and then run `sudo ./packet_mmap -c 2 eth0` to send 2 frames via a shared TX ring to `eth0`.  As the frames are processed the `SystemTap` script should print out diagnostic information.
+Once you have successfully booted the kernel with debug information and `af_packet.c` compiled without optimization, you can run the `SystemTap` script with `sudo stap status.stp` and then run `sudo ./packet_mmap -c 2 eth0` to send 2 frames via a shared TX ring to `eth0` (the supplied `Makefile` will build `packet_mmap`).  As the frames are processed the `SystemTap` script should print out diagnostic information.
