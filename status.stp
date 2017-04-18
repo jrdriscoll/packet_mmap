@@ -115,6 +115,18 @@ probe kernel.statement("__packet_get_status@net/packet/af_packet.c:361") {
 # 2213 	return err;
 # 2214 }
 
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2142") {
+  print_ts();
+  printf("tpacket_snd:2142: flags 0x%x, pending %d\n", 
+	 $msg->msg_flags, $po->tx_ring->pending->counter);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2197") {
+  print_ts();
+  printf("tpacket_snd:2197: flags 0x%x, pending %d\n", 
+	 $msg->msg_flags, $po->tx_ring->pending->counter);
+}
+
 probe kernel.function("tpacket_snd") {
   print_ts();
   printf("tpacket_snd: args(%s)\n", $$parms);
@@ -156,5 +168,6 @@ probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2141") {
 
 probe kernel.statement("tpacket_destruct_skb@net/packet/af_packet.c:1956") {
   print_ts();
-  printf("tpacket_destruct_skb:1956: ph = 0x%.16x\n", $ph);
+  printf("tpacket_destruct_skb:1956: ph = 0x%.16x, pending %d\n",
+	 $ph, $po->tx_ring->pending->counter);
 }
