@@ -166,8 +166,8 @@ probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2141") {
 # 1962 	sock_wfree(skb);
 # 1963 }
 
-probe kernel.statement("tpacket_destruct_skb@net/packet/af_packet.c:1956") {
+probe kernel.statement("tpacket_destruct_skb@net/packet/af_packet.c:1959") {
   print_ts();
-  printf("tpacket_destruct_skb:1956: ph = 0x%.16x, pending %d\n",
-	 $ph, $po->tx_ring->pending->counter);
+  printf("tpacket_destruct_skb:1959: ph = 0x%.16x, ts = 0x%x, pending %d\n",
+	 $ph, $ts, $po->tx_ring->pending->counter);
 }
