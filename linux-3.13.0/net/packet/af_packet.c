@@ -2147,7 +2147,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
 		tlen = dev->needed_tailroom;
 		skb = sock_alloc_send_skb(&po->sk,
 				hlen + tlen + sizeof(struct sockaddr_ll),
-				0, &err);
+				msg->msg_flags & MSG_DONTWAIT, &err);
 
 		if (unlikely(skb == NULL))
 			goto out_status;
