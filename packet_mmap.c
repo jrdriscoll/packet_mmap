@@ -22,16 +22,17 @@
 #include <linux/if_packet.h>
 #include <poll.h>
 #include <pthread.h>
+#include <sys/user.h>
  
 /* params */
 static char * str_devname= NULL;
 static int c_packet_sz   = 150;
 static int c_packet_nb   = 1000;
-static int c_buffer_sz   = 1024*8;
-static int c_buffer_nb   = 1024;
+static int c_buffer_sz   = PAGE_SIZE;
+static int c_buffer_nb   = 1024*8;
 static int c_sndbuf_sz   = 0;
 static int c_mtu         = 0;
-static int c_send_mask   = 127;
+static int c_send_mask   = 1024*8-1;
 static int c_error       = 0;
 static int mode_dgram    = 0;
 static int mode_thread   = 0;

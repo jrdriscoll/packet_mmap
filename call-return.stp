@@ -1,0 +1,23 @@
+# This is specific to net/packet/af_packet.c 3.13.0-116
+
+function print_ts() {
+  ts = gettimeofday_us();
+  printf("[%10d.%06d] ", ts/1000000, ts%1000000);
+}
+
+# 2088 static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+# 2089 {
+# [...]
+# 2213 	return err;
+# 2214 }
+
+probe kernel.function("tpacket_snd") {
+  print_ts();
+  printf("tpacket_snd: args(%s)\n", $$parms);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {
+  print_ts();
+  printf("tpacket_snd: return(%d)\n", $err);
+}
+
