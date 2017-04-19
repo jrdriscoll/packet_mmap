@@ -115,6 +115,21 @@ probe kernel.statement("__packet_get_status@net/packet/af_packet.c:361") {
 # 2213 	return err;
 # 2214 }
 
+probe kernel.function("tpacket_snd") {
+  print_ts();
+  printf("tpacket_snd: args(%s)\n", $$parms);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2140") {
+  print_ts();
+  printf("tpacket_snd:2140: current frame ph = 0x%.16x\n", $ph);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2141") {
+  print_ts();
+  printf("tpacket_snd:2141: (ph==NULL) --> schedule()\n");
+}
+
 probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2142") {
   print_ts();
   printf("tpacket_snd:2142: flags 0x%x, pending %d\n", 
@@ -127,24 +142,9 @@ probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2197") {
 	 $msg->msg_flags, $po->tx_ring->pending->counter);
 }
 
-probe kernel.function("tpacket_snd") {
-  print_ts();
-  printf("tpacket_snd: args(%s)\n", $$parms);
-}
-
 probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {
   print_ts();
   printf("tpacket_snd: return(%d)\n", $err);
-}
-
-probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2140") {
-  print_ts();
-  printf("tpacket_snd:2140: current frame ph = 0x%.16x\n", $ph);
-}
-
-probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2141") {
-  print_ts();
-  printf("tpacket_snd:2141: (ph==NULL) --> schedule()\n");
 }
 
 # 1946 static void tpacket_destruct_skb(struct sk_buff *skb)
