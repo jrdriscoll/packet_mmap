@@ -16,8 +16,20 @@ probe kernel.function("tpacket_snd") {
   printf("tpacket_snd: args(%s)\n", $$parms);
 }
 
-probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2133") {
   print_ts();
-  printf("tpacket_snd: return(%d)\n", $err);
+  printf("tpacket_snd:2133: sk_sndbuf =  %d sk_wmem_alloc = %d\n", 
+	 $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
 }
 
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {
+  print_ts();
+  printf("tpacket_snd: return(%d) sk_sndbuf =  %d sk_wmem_alloc = %d\n", 
+	 $err, $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2153") {
+  print_ts();
+  printf("tpacket_snd:2153: sock_alloc_send_skb err = %d, sk_sndbuf =  %d sk_wmem_alloc = %d\n", 
+	 $err, $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
+}

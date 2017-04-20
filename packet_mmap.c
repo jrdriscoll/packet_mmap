@@ -24,15 +24,18 @@
 #include <pthread.h>
 #include <sys/user.h>
  
+#define FRAMES 8192
+#define FRAME_SIZE 150
+
 /* params */
 static char * str_devname= NULL;
-static int c_packet_sz   = 150;
+static int c_packet_sz   = FRAME_SIZE;
 static int c_packet_nb   = 1000;
 static int c_buffer_sz   = PAGE_SIZE;
-static int c_buffer_nb   = 1024*8;
-static int c_sndbuf_sz   = 0;
+static int c_buffer_nb   = FRAMES;
+static int c_sndbuf_sz   = FRAMES*FRAME_SIZE;
 static int c_mtu         = 0;
-static int c_send_mask   = 1024*8-1;
+static int c_send_mask   = FRAMES-1;
 static int c_error       = 0;
 static int mode_dgram    = 0;
 static int mode_thread   = 0;
@@ -74,7 +77,7 @@ void getargs( int argc, char ** argv )
 {
   int c;
   opterr = 0;
-  while( (c = getopt( argc, argv, "e:s:m:b:B:n:c:z:j:vhgtl"))!= EOF) {
+  while( (c = getopt( argc, argv, "e:s:m:b:B:n:c:z:j:f:vhgtl"))!= EOF) {
     switch( c ) {
     case 's': c_packet_sz = strtoul( optarg, NULL, 0 ); break;
     case 'c': c_packet_nb = strtoul( optarg, NULL, 0 ); break;
@@ -238,19 +241,7 @@ int main( int argc, char ** argv )
       return EXIT_FAILURE;
     }
  
- 
-  /* change send buffer size */
-  if(c_sndbuf_sz) {
-    printf("send buff size = %d\n", c_sndbuf_sz);
-    if (setsockopt(fd_socket, SOL_SOCKET, SO_SNDBUF, &c_sndbuf_sz,
-		   sizeof(c_sndbuf_sz))< 0)
-      {
-	perror("getsockopt: SO_SNDBUF");
-	return EXIT_FAILURE;
-      }
-  }
- 
-  /* get data offset */
+   /* get data offset */
   data_offset = TPACKET_HDRLEN - sizeof(struct sockaddr_ll);
   printf("data offset = %d bytes\n", data_offset);
  
@@ -262,6 +253,42 @@ int main( int argc, char ** argv )
       return EXIT_FAILURE;
     }
  
+ 
+  /* change send buffer size */
+  if(c_sndbuf_sz) {
+    int read_size;
+    socklen_t read_len = sizeof(read_size);
+
+    printf("send buff size = %d\n", c_sndbuf_sz);
+    if (setsockopt(fd_socket, SOL_SOCKET, SO_SNDBUF, &c_sndbuf_sz, sizeof(c_sndbuf_sz)) < 0) {
+	perror("setsockopt: SO_SNDBUF");
+	return EXIT_FAILURE;
+    }
+    
+    if (getsockopt(fd_socket, SOL_SOCKET, SO_SNDBUF, &read_size, &read_len) < 0) {
+      perror("getsockopt: SO_SNDBUF");
+      return EXIT_FAILURE;
+    }
+    printf("got buff size = %d\n", read_size);
+
+    if (read_size < c_sndbuf_sz) {
+      printf("buff size smaller than desired, trying to force...\n");
+      if (setsockopt(fd_socket, SOL_SOCKET, SO_SNDBUFFORCE, &c_sndbuf_sz, sizeof(c_sndbuf_sz))<0) {
+	perror("setsockopt: SO_SNDBUFFORCE");
+	return EXIT_FAILURE;
+      }
+      if (getsockopt(fd_socket, SOL_SOCKET, SO_SNDBUF, &read_size, &read_len) < 0) {
+	perror("getsockopt: SO_SNDBUF");
+	return EXIT_FAILURE;
+      }
+      printf("got buff size = %d\n", read_size);
+      if (read_size < c_sndbuf_sz) {
+	printf("still smaller than desired\n");
+	return EXIT_FAILURE;
+      }
+    }
+
+  }
  
   /* fill peer sockaddr for SOCK_DGRAM */
   if (mode_dgram)
@@ -455,6 +482,8 @@ void *task_fill(void *arg) {
 	    {
 	      /* send all buffers with TP_STATUS_SEND_REQUEST */
 	      /* Don't wait end of transfer */
+	      printf("i&c_send_mask 0x%x, ec_send %d, i %d, c_packet_nb %d\n",
+		     i&c_send_mask, ec_send, i, c_packet_nb);
 	      ec_send = (long long) task_send((void*)0);
 	    }
 	}
