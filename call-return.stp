@@ -8,6 +8,23 @@ function print_ts() {
 # 2088 static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
 # 2089 {
 # [...]
+# 2133 	if (size_max > dev->mtu + reserve + VLAN_HLEN)
+# 2134 		size_max = dev->mtu + reserve + VLAN_HLEN;
+# 2135 
+# 2136 	do {
+# [...]
+# 2148 		skb = sock_alloc_send_skb(&po->sk,
+# 2149 				hlen + tlen + sizeof(struct sockaddr_ll),
+# 2150 				msg->msg_flags & MSG_DONTWAIT, &err);
+# 2151 
+# 2152 		if (unlikely(skb == NULL))
+# 2153 			goto out_status;
+# [...]
+# 2198 	} while (likely((ph != NULL) ||
+# 2199 			((!(msg->msg_flags & MSG_DONTWAIT)) &&
+# 2200 			 (atomic_read(&po->tx_ring.pending))))
+# 2201 		);
+# [...]
 # 2213 	return err;
 # 2214 }
 
@@ -22,14 +39,14 @@ probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2133") {
 	 $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
 }
 
-probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {
-  print_ts();
-  printf("tpacket_snd: return(%d) sk_sndbuf =  %d sk_wmem_alloc = %d\n", 
-	 $err, $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
-}
-
 probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2153") {
   print_ts();
   printf("tpacket_snd:2153: sock_alloc_send_skb err = %d, sk_sndbuf =  %d sk_wmem_alloc = %d\n", 
+	 $err, $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {
+  print_ts();
+  printf("tpacket_snd: return(%d) sk_sndbuf =  %d sk_wmem_alloc = %d\n", 
 	 $err, $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
 }
