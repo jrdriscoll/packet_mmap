@@ -20,6 +20,23 @@ function print_ts() {
 # 2152 		if (unlikely(skb == NULL))
 # 2153 			goto out_status;
 # [...]
+# 2181 		err = dev_queue_xmit(skb);
+# 2182 		if (unlikely(err > 0)) {
+# 2183 			err = net_xmit_errno(err);
+# 2184 			if (err && __packet_get_status(po, ph) ==
+# 2185 				   TP_STATUS_AVAILABLE) {
+# 2186 				/* skb was destructed already */
+# 2187 				skb = NULL;
+# 2188 				goto out_status;
+# 2189 			}
+# 2190 			/*
+# 2191 			 * skb was dropped but not destructed yet;
+# 2192 			 * let's treat it like congestion or err < 0
+# 2193 			 */
+# 2194 			err = 0;
+# 2195 		}
+# 2196 		packet_increment_head(&po->tx_ring);
+# 2197 		len_sum += tp_len;
 # 2198 	} while (likely((ph != NULL) ||
 # 2199 			((!(msg->msg_flags & MSG_DONTWAIT)) &&
 # 2200 			 (atomic_read(&po->tx_ring.pending))))
@@ -43,6 +60,23 @@ probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2153") {
   print_ts();
   printf("tpacket_snd:2153: sock_alloc_send_skb err = %d, sk_sndbuf =  %d sk_wmem_alloc = %d\n", 
 	 $err, $po->sk->sk_sndbuf, $po->sk->sk_wmem_alloc->counter);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2182") {
+  if ($err != 0) {
+    print_ts();
+    printf("tpacket_snd:2182: dev_queue_xmit err = %d\n", $err);
+  }
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2187") {
+  print_ts();
+  printf("tpacket_snd:2187: destructed: net_xmit_errno = %d\n", $err);
+}
+
+probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2194") {
+  print_ts();
+  printf("tpacket_snd:2194: *NOT* destructed: net_xmit_errno = %d\n", $err);
 }
 
 probe kernel.statement("tpacket_snd@net/packet/af_packet.c:2213") {

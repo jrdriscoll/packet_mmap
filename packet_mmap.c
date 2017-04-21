@@ -23,6 +23,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <sys/user.h>
+#include <errno.h>
  
 #define FRAMES 8192
 #define FRAME_SIZE 150
@@ -389,14 +390,17 @@ void *task_send(void *arg) {
       /* send all buffers with TP_STATUS_SEND_REQUEST */
       /* Wait end of transfer */
       if(mode_verbose) printf("send() start\n");
-      ec_send = sendto(fd_socket,
-		       NULL,
-		       0,
-		       (blocking? 0 : MSG_DONTWAIT),
-		       (struct sockaddr *) ps_sockaddr,
-		       sizeof(struct sockaddr_ll));
-      if(mode_verbose) printf("send() end (ec=%d)\n",ec_send);
- 
+      do { 
+	ec_send = sendto(fd_socket,
+			 NULL,
+			 0,
+			 (blocking? 0 : MSG_DONTWAIT),
+			 (struct sockaddr *) ps_sockaddr,
+			 sizeof(struct sockaddr_ll));
+	if(mode_verbose) printf("send() end (ec=%d)\n",ec_send);
+        if (ec_send < 0) ec_send = -errno;
+      }	while ( ec_send == -ENOBUFS || ec_send == -EAGAIN );
+
       if(ec_send < 0) {
 	perror("send");
 	break;
@@ -482,9 +486,7 @@ void *task_fill(void *arg) {
 	    {
 	      /* send all buffers with TP_STATUS_SEND_REQUEST */
 	      /* Don't wait end of transfer */
-	      printf("i&c_send_mask 0x%x, ec_send %d, i %d, c_packet_nb %d\n",
-		     i&c_send_mask, ec_send, i, c_packet_nb);
-	      ec_send = (long long) task_send((void*)0);
+
 	    }
 	}
       else if(c_error) {
